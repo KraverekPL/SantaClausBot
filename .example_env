@@ -5,9 +5,11 @@ log_level=INFO
 
 #owner settings
 target_user_id=""
-enable_ai=true
+enabled_ai=true
+open_ai_api_token=""
 open_ai_model="gpt-3.5-turbo"
 open_ai_top_p=1
 open_ai_max_tokens=1000
 open_ai_temperature=0
 ai_behavior="random"
+open_ai_number_of_msg_per_sec_user=500
