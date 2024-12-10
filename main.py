@@ -8,11 +8,13 @@ import discord
 from dotenv import load_dotenv
 from discord.ext import commands, tasks
 
+
 # Logging configuration
 load_dotenv(".env")
 logging.basicConfig(level=os.getenv('log_level'), format='%(asctime)s - %(levelname)s - %(funcName)s - %(message)s')
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
+
 
 @bot.event
 async def on_ready():
@@ -20,6 +22,14 @@ async def on_ready():
     logging.info(f'Logged in as {bot.user.name} ({bot.user.id})')
     logging.info(f'Log level: ' + os.getenv('log_level'))
     logging.info(f'Enable AI (OpenAI): ' + os.getenv('enabled_ai'))
+    logging.info(f'Message history enabled: ' + os.getenv('message_history_enabled'))
+    logging.info(f'Message history limit: ' + os.getenv('message_history_limit'))
+    logging.info(f'OpenAI model: ' + os.getenv('open_ai_model'))
+    logging.info(f'OpenAI max tokens: ' + os.getenv('open_ai_max_tokens'))
+    logging.info(f'OpenAI temperature: ' + os.getenv('open_ai_temperature'))
+    logging.info(f'OpenAI top p: ' + os.getenv('open_ai_top_p'))
+    logging.info(f'Max messages per day: ' + os.getenv('open_ai_max_number_of_messages_per_guild_per_day'))
+    logging.info(f'Bot is in {len(bot.guilds)} guilds.')
     do_not_load_those_cogs = ['__init__']
     for filename in os.listdir('modules'):
         if filename.endswith('.py') and filename[:-3] not in do_not_load_those_cogs:
@@ -29,6 +39,7 @@ async def on_ready():
             except commands.ExtensionError as e:
                 logging.error(f'Error loading cog {filename[:-3]}: {e.with_traceback(e.__traceback__)}')
     logging.info('---------------------------------------------------------------')
+
 
 @bot.command(name='exit', help='Wyłącza bota')
 async def exit_bot(ctx):
@@ -40,6 +51,7 @@ async def exit_bot(ctx):
     else:
         await ctx.send('Nie masz uprawnień do tej komendy.')
         logging.info(f"There was an attempt to disable the bot by the user: {ctx.author.id}")
+
 
 async def main():
     try:

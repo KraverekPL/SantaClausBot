@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import random
 from __main__ import bot
 
 from dotenv import load_dotenv
@@ -19,6 +20,17 @@ def remove_polish_chars(text):
         'Ą': 'A', 'Ć': 'C', 'Ę': 'E', 'Ł': 'L', 'Ń': 'N', 'Ó': 'O', 'Ś': 'S', 'Ź': 'Z', 'Ż': 'Z'
     }
     return ''.join(mapping.get(char, char) for char in text)
+
+
+def get_santa_busy_response():
+    responses = [
+        "Hej, mam teraz pełne ręce roboty! 🎅 Chwileczkę, muszę zrobić przerwę na pierniki!",
+        "Ho ho ho! 🎄 Mikołaj jest teraz bardzo zajęty pakowaniem prezentów! Spróbuj później!",
+        "Ojej, wygląda na to, że Mikołaj ma pełne ręce pracy! 🎅 Będę musiał sprawdzić to później!",
+        "Ho ho ho! 🎅 Mikołaj jest teraz w samym środku przygotowań do Świąt! Spróbuj za chwilę!",
+        "Oj, nie udało się! 🎅 Mikołaj ma teraz pełne ręce roboty! Czekaj chwilkę, wrócę do ciebie!"
+    ]
+    return random.choice(responses)
 
 
 def load_resources_from_file(file_name):
