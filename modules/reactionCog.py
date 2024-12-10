@@ -8,6 +8,7 @@ from discord.ext import commands
 from services.open_ai_service import OpenAIService
 from services.common import get_santa_busy_response
 
+
 async def send_santa_response_in_parts(channel, response):
     try:
         sentences = response.split(". ")
@@ -20,6 +21,7 @@ async def send_santa_response_in_parts(channel, response):
                 await channel.send(sentence)
     except Exception as e:
         logging.error(f"Error sending Santa response in parts: {e}")
+
 
 async def get_response_from_openai(enable_ai, message, open_ai_model):
     if enable_ai:
@@ -35,7 +37,6 @@ async def get_response_from_openai(enable_ai, message, open_ai_model):
     else:
         await message.reply(get_santa_busy_response())
         logging.info(f"OpenAi API is turned off. Sending default message.")
-
 
 class ReactionCog(commands.Cog):
     def __init__(self, bot):

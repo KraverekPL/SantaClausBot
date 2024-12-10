@@ -41,9 +41,25 @@ async def on_ready():
     logging.info('---------------------------------------------------------------')
 
 
+@bot.command(name='say', help='Pozwala rozmawiac jako Mikolaj')
+async def say_as_bot(ctx, *, message: str):
+    try:
+        if not message:
+            logging.info("Message is empty.")
+            return
+        channel_id = int(os.getenv('channel_id_for_santa_claus'))
+        channel = bot.get_channel(channel_id)
+        if channel:
+            await channel.send(message)
+            logging.info(f"Message sent to channel with id {channel_id}: {message}")
+        else:
+            logging.error(f"Channel with id {channel_id} not found.")
+    except Exception as e:
+        logging.error(f"Error sending message: {e}")
+
 @bot.command(name='exit', help='Wyłącza bota')
 async def exit_bot(ctx):
-    allowed_user_id = os.getenv('target_user_id')  # Zastąp to właściwym ID użytkownika
+    allowed_user_id = os.getenv('target_user_id')
     if ctx.author.id == int(allowed_user_id):
         logging.info("Bot was closed by creator.")
         await ctx.send('Bot zostanie teraz wyłączony.')
