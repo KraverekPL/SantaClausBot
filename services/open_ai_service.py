@@ -110,7 +110,6 @@ def can_guild_send_message(guild_id):
 
 
 async def add_history_to_message(message, limit):
-    boundary_conditions = "Używaj prostego języka. Nie dodawaj na początku Mikołaj:"
     if not isinstance(message.channel, (discord.TextChannel, discord.DMChannel, discord.Thread)):
         logging.warning(f"Channel type does not support history: {type(message.channel)}")
     else:
@@ -120,14 +119,14 @@ async def add_history_to_message(message, limit):
             async for msg in message.channel.history(limit=int(limit)):
                 history.append(msg)
             history.reverse()
-            history_response = "Historia czatu:\n"
+            history_response = "\nHistoria czatu:\n"
             for msg in history:
                 if msg.author.bot:
                     history_response += f"Mikołaj: {msg.content}\n"
                 else:
                     history_response += f"Dziecko: {msg.content}\n"
                 logging.info(f"History: {msg.author.name}: {msg.content.strip()}")
-            message.content = history_response + "\n" + original_message + ".\n" + boundary_conditions
+            message.content = "Nie dodawaj Mikołaj: w odpowiedzi na początku." + history_response + "\n" + original_message
             return message
         except Exception as e:
             logging.error(f"Error while adding history to message: {e}")

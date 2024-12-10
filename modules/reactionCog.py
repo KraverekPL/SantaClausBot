@@ -1,19 +1,33 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import asyncio
 
 from discord.ext import commands
 
 from services.open_ai_service import OpenAIService
 from services.common import get_santa_busy_response
 
+async def send_santa_response_in_parts(channel, response):
+    try:
+        sentences = response.split(". ")
+        for sentence in sentences:
+            if sentence.strip():
+                if not sentence.endswith("."):
+                    sentence += "."
+                async with channel.typing():
+                    await asyncio.sleep(3)
+                await channel.send(sentence)
+    except Exception as e:
+        logging.error(f"Error sending Santa response in parts: {e}")
 
 async def get_response_from_openai(enable_ai, message, open_ai_model):
     if enable_ai:
         open_ai_service = OpenAIService(open_ai_model)
         response_from_ai = await open_ai_service.chat_with_gpt(message)
         if response_from_ai is not None:
-            await message.reply(response_from_ai)
+            await send_santa_response_in_parts(message.channel, response_from_ai)
+            # await message.reply(response_from_ai)
             logging.info(f"Response from OpenAi with msg: {message.content.strip()}:{response_from_ai}")
         else:
             await message.reply(get_santa_busy_response())
