@@ -3,7 +3,6 @@ import datetime
 import json
 import logging
 import os
-import random
 import re
 import time
 
@@ -11,12 +10,6 @@ import discord
 import openai
 from discord.ext import commands
 from openai import OpenAI
-import os
-from openai import OpenAI
-import openai
-import requests
-from io import BytesIO
-from PIL import Image
 
 GPT_35_TURBO_ = 'gpt-3.5-turbo-0125'
 
