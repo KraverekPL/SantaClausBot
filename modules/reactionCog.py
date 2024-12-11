@@ -8,7 +8,7 @@ import random
 from discord.ext import commands
 
 from services.common import get_santa_busy_response
-from services.open_ai_service import OpenAIService
+from services.open_ai_service import OpenAIService, analyze_image
 
 
 async def send_santa_response_in_parts(channel, response):
@@ -76,8 +76,10 @@ class ReactionCog(commands.Cog):
             ]
             random_emoji = random.choice(christmas_emojis)
             await message.add_reaction(random_emoji)
+
             if enabled_image_ai_analyze is True:
-                # TODO add implementation to analyze photos
+                response = analyze_image(message)
+                await message.reply(response)
                 return
             else:
                 response = await return_response_for_attachment()

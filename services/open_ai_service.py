@@ -11,7 +11,8 @@ import discord
 import openai
 from discord.ext import commands
 from openai import OpenAI
-
+import os
+from openai import OpenAI
 import openai
 import requests
 from io import BytesIO
@@ -137,6 +138,39 @@ async def add_history_to_message(message, limit):
         except Exception as e:
             logging.error(f"Error while adding history to message: {e}")
             return None
+
+
+def analyze_image(message_to_ai):
+    attachment = message_to_ai.attachments[0]
+    image_url = attachment.url
+    logging.info(f"Image URL: {image_url}")
+    client = OpenAI(
+        api_key=os.getenv('open_ai_api_token'),
+    )
+    prompt = message_to_ai.content.strip()
+    logging.info(f"Prompt before: {prompt}")
+    if not prompt:
+        prompt = (f"Jeżeli na zdjeciu jest pokój, przeanalizuj czy jest posprzatany i daj wskazówki. Pamietaj że to "
+                  f"dziecko więc bądz wyrozumiały. Jeśli jest to zdjęcie zabawki, np popsutej, wyraz niezadowolenie "
+                  f"jako Mikołaj. Natomiast jeśli to jakiś obraz/komiks namalowany przez dziecko, oceń.")
+    logging.info(f"Prompt after: {prompt}")
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"{image_url}"},
+                    },
+                ],
+            }
+        ],
+    )
+    logging.info(f"Response from API OpenAI: {response}")
+    return response.choices[0].message.content
 
 
 class OpenAIService(commands.Cog):
