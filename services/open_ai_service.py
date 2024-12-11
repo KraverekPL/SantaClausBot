@@ -17,9 +17,9 @@ import requests
 from io import BytesIO
 from PIL import Image
 
-GPT___TURBO_ = 'gpt-3.5-turbo-0125'
+GPT_35_TURBO_ = 'gpt-3.5-turbo-0125'
 
-GPT___TURBO_INSTRUCT = 'gpt-3.5-turbo-instruct'
+GPT_35_TURBO_INSTRUCT = 'gpt-3.5-turbo-instruct'
 
 last_user_message_times = {}
 
@@ -114,10 +114,14 @@ async def add_history_to_message(message, limit):
         logging.warning(f"Channel type does not support history: {type(message.channel)}")
     else:
         try:
-            original_message = message.content.strip()
             history = []
             async for msg in message.channel.history(limit=int(limit)):
-                history.append(msg)
+                # We are not adding message which invoked this method
+                if msg.id == message.id:
+                    continue
+                # We are not adding attachments to history, only texts if exist of course
+                if msg.content.strip():
+                    history.append(msg)
             history.reverse()
             history_response = "\nHistoria czatu:\n"
             for msg in history:
@@ -126,7 +130,9 @@ async def add_history_to_message(message, limit):
                 else:
                     history_response += f"Dziecko: {msg.content}\n"
                 logging.info(f"History: {msg.author.name}: {msg.content.strip()}")
-            message.content = "Nie dodawaj Mikołaj: w odpowiedzi na początku." + history_response + "\n" + original_message
+            current_question = f"Nowe pytanie: {message.content.strip()}"
+            prompt = f"{history_response}\n{current_question}"
+            message.content = prompt
             return message
         except Exception as e:
             logging.error(f"Error while adding history to message: {e}")
@@ -211,7 +217,7 @@ class OpenAIService(commands.Cog):
             return response.choices[0].message.content
 
     async def chat_with_gpt(self, message):
-        # Send a message to the ChatGPT API and get a response
+        # Send a message to the openAPI model and get a response back
         user_id_to_check = message.author.id
         guild_id = message.guild.id
         message_history_limit = os.getenv('message_history_limit')
@@ -228,16 +234,16 @@ class OpenAIService(commands.Cog):
                 return "Musze już iść spać i dzisiaj nie bede w stanie przeczytać więcej Twoich wiaodmości. Prosze badz grzecznym dzieckiem!"
 
             response_from_ai = None
-            # Add history to message
+            # Add history to message (limit is stored in envs!)
             if message_history_enabled:
                 message_to_ai = await add_history_to_message(message, message_history_limit)
             else:
                 message_to_ai = message
 
-            # Call OpenAI API engine
-            if GPT___TURBO_INSTRUCT in self.model_ai:
+            # Call one of OpenAI API engines
+            if GPT_35_TURBO_INSTRUCT in self.model_ai:
                 response_from_ai = self.gpt_35_turbo_instruct(message_to_ai)
-            elif GPT___TURBO_ in self.model_ai:
+            elif GPT_35_TURBO_ in self.model_ai:
                 response_from_ai = self.gpt_35_turbo_0125(message_to_ai, False)
 
             return response_from_ai

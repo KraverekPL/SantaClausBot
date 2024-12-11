@@ -17,3 +17,4 @@ message_history_limit=5
 message_history_enabled=true
 open_ai_max_number_of_messages_per_guild_per_day=1000
 channel_id_for_santa_claus="1315993628020148315"
+enabled_image_ai_analyze=false
