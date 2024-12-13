@@ -47,7 +47,7 @@ async def say_as_bot(ctx, *, message: str):
         if not message:
             logging.info("Message for command say is empty.")
             return
-        channel_id = int(os.getenv('channel_id_for_santa_claus'))
+        channel_id = int(os.getenv('channel_id_for_talking'))
         channel = bot.get_channel(channel_id)
         if channel:
             await channel.send(message)

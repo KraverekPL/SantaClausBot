@@ -120,7 +120,7 @@ async def add_history_to_message(message, limit):
             history_response = "\nHistoria czatu:\n"
             for msg in history:
                 history_response += f"{msg.content}\n"
-            logging.info(f"History: {msg.author.name}: {msg.content.strip()}")
+                logging.info(f"History: {msg.author.name}: {msg.content.strip()}")
             current_question = f"Nowe pytanie: {message.content.strip()}."
             prompt = f"{history_response}\n{current_question}"
             message.content = prompt
@@ -140,9 +140,9 @@ def analyze_image(message_to_ai):
     prompt = message_to_ai.content.strip()
     logging.info(f"Prompt before: {prompt}")
     if not prompt:
-        prompt = (f"Jeżeli na zdjeciu jest pokój, przeanalizuj czy jest posprzatany i daj wskazówki. Pamietaj że to "
+        prompt = (f"Jeżeli na zdjeciu jest pokój, przeanalizuj czy jest posprzatany i daj proste wskazówki. Pamietaj że to "
                   f"dziecko więc bądz wyrozumiały. Jeśli jest to zdjęcie zabawki, np popsutej, wyraz niezadowolenie "
-                  f"jako Mikołaj. Natomiast jeśli to jakiś obraz/komiks namalowany przez dziecko, oceń.")
+                  f"jako Mikołaj. Natomiast jeśli to jakiś obraz/komiks namalowany przez dziecko, oceń i opisz.")
     logging.info(f"Prompt after: {prompt}")
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -263,7 +263,7 @@ class OpenAIService(commands.Cog):
                 message_to_ai = await add_history_to_message(message, message_history_limit)
             else:
                 message_to_ai = message
-
+            logging.info(f"Message to AI: {message_to_ai}")
             # Call one of OpenAI API engines
             if GPT_35_TURBO_INSTRUCT in self.model_ai:
                 response_from_ai = self.gpt_35_turbo_instruct(message_to_ai)

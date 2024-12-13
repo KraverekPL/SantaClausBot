@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import random
+import re
 
 from discord.ext import commands
 
@@ -13,13 +14,11 @@ from services.open_ai_service import OpenAIService, analyze_image
 
 async def send_santa_response_in_parts(channel, response):
     try:
-        sentences = response.split(". ")
+        sentences = re.split(r'(?<=[.!?])\s+', response)
         for sentence in sentences:
             if sentence.strip():
-                if not sentence.endswith("."):
-                    sentence += "."
                 async with channel.typing():
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(2)
                 await channel.send(sentence)
     except Exception as e:
         logging.error(f"Error sending Santa response in parts: {e}")
@@ -61,9 +60,11 @@ class ReactionCog(commands.Cog):
         """Event handler called when a message is received."""
         enable_ai = os.getenv("enabled_ai", 'False').lower() in ('true', '1', 't')
         open_ai_model = os.getenv('open_ai_model')
-        channel_id_for_santa_claus = int(os.getenv('channel_id_for_santa_claus'))
+        channels_id_for_santa_claus_listener = os.getenv('channels_id_for_santa_claus_listener')
         enabled_image_ai_analyze = os.getenv("enabled_image_ai_analyze", 'False').lower() in ('true', '1', 't')
 
+        channels_id_for_santa_claus_listener_list = channels_id_for_santa_claus_listener.split(',')
+        channels_id_for_santa_claus_listener_list = [int(channel.strip()) for channel in channels_id_for_santa_claus_listener_list]
         # Ignore messages from bot
         if message.author.bot:
             return
@@ -71,15 +72,16 @@ class ReactionCog(commands.Cog):
         # If the message has attachments
         if message.attachments:
             christmas_emojis = [
-                "🎄", "🎅", "❄️", "⛄", "🎁", "🦌", "⭐", "🍪", "🥛", "🎶",
-                "🕯️", "🌟", "🧑‍🎄", "🦌🎄", "🌲", "🎉", "🔔", "🍬", "🍫"
+                "🎄", "🎅"
             ]
             random_emoji = random.choice(christmas_emojis)
             await message.add_reaction(random_emoji)
 
             if enabled_image_ai_analyze is True:
+                async with message.channel.typing():
+                    await asyncio.sleep(4)
                 response = analyze_image(message)
-                await message.reply(response)
+                await message.reply(send_santa_response_in_parts(response))
                 return
             else:
                 response = await return_response_for_attachment()
@@ -89,7 +91,7 @@ class ReactionCog(commands.Cog):
                 return
 
         # If the message has content and its on Santa Claus channel - send it to Open API gateway
-        if message.channel.id == channel_id_for_santa_claus and not message.author.bot:
+        if message.channel.id in channels_id_for_santa_claus_listener_list and not message.author.bot:
             await get_response_from_openai(enable_ai, message, open_ai_model)
             return
 
