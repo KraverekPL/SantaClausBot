@@ -119,12 +119,9 @@ async def add_history_to_message(message, limit):
             history.reverse()
             history_response = "\nHistoria czatu:\n"
             for msg in history:
-                if msg.author.bot:
-                    history_response += f"Mikołaj: {msg.content}\n"
-                else:
-                    history_response += f"Dziecko: {msg.content}\n"
-                logging.info(f"History: {msg.author.name}: {msg.content.strip()}")
-            current_question = f"Nowe pytanie: {message.content.strip()}"
+                history_response += f"{msg.content}\n"
+            logging.info(f"History: {msg.author.name}: {msg.content.strip()}")
+            current_question = f"Nowe pytanie: {message.content.strip()}."
             prompt = f"{history_response}\n{current_question}"
             message.content = prompt
             return message
