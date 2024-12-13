@@ -81,7 +81,7 @@ class ReactionCog(commands.Cog):
                 async with message.channel.typing():
                     await asyncio.sleep(4)
                 response = analyze_image(message)
-                await message.reply(send_santa_response_in_parts(response))
+                await message.reply(send_santa_response_in_parts(message.channel, response))
                 return
             else:
                 response = await return_response_for_attachment()
