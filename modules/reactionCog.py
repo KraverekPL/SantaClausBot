@@ -14,9 +14,15 @@ from services.open_ai_service import OpenAIService, analyze_image
 
 async def send_santa_response_in_parts(channel, response):
     try:
-        sentences = re.split(r'(?<=[.!?])\s+', response)
+        if not response.strip():
+            logging.warning("Response is empty, nothing to send.")
+            return
+        # sentences = re.split(r'(?<=[.!?])\s+', response)
+        sentences = re.split(r'(?<=[a-zA-Z][.!?])\s+', response)
+        sentences = [s for s in sentences if s.strip()]
         for sentence in sentences:
-            if sentence.strip():
+            sentence = sentence.strip()
+            if sentence:
                 async with channel.typing():
                     await asyncio.sleep(2)
                 await channel.send(sentence)
@@ -81,7 +87,7 @@ class ReactionCog(commands.Cog):
                 async with message.channel.typing():
                     await asyncio.sleep(4)
                 response = analyze_image(message)
-                await message.reply(send_santa_response_in_parts(message.channel, response))
+                await send_santa_response_in_parts(message.channel, response)
                 return
             else:
                 response = await return_response_for_attachment()
