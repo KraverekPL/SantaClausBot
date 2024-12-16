@@ -142,7 +142,7 @@ def analyze_image(message_to_ai):
     if not prompt:
         prompt = (f"Jeżeli na zdjeciu jest pokój, przeanalizuj czy jest posprzatany i daj proste wskazówki. Pamietaj że to "
                   f"dziecko więc bądz wyrozumiały. Jeśli jest to zdjęcie zabawki, np popsutej, wyraz niezadowolenie "
-                  f"jako Mikołaj. Natomiast jeśli to jakiś obraz/komiks namalowany przez dziecko, oceń i opisz.")
+                  f"jako Mikołaj. Natomiast jeśli to jakiś obraz/komiks namalowany przez dziecko, oceń i opisz. Odpowiadaj ZAWSZE po polsku.")
     logging.info(f"Prompt after: {prompt}")
     response = client.chat.completions.create(
         model="gpt-4o-mini",
