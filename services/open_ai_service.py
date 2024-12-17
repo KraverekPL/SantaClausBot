@@ -41,24 +41,6 @@ def get_tools():
     return tools
 
 
-def get_messages(ai_behaviour: str, message_to_ai):
-    user_id_pattern = re.compile(r'<@!?1315827200770969693>')  # remove bot id from msg
-    cleaned_content = user_id_pattern.sub('', message_to_ai.content.strip())
-    # user_name = message_to_ai.author.display_name
-    prompt = cleaned_content
-    messages = [
-        {
-            "role": "system",
-            "content": ai_behaviour
-        },
-        {
-            "role": "user",
-            "content": prompt
-        }
-    ]
-    return messages
-
-
 def can_user_send_message(user_id):
     if user_id not in last_user_message_times:
         last_user_message_times[user_id] = []
@@ -103,31 +85,41 @@ def can_guild_send_message(guild_id):
         return False
 
 
-async def add_history_to_message(message, limit):
-    if not isinstance(message.channel, (discord.TextChannel, discord.DMChannel, discord.Thread)):
-        logging.warning(f"Channel type does not support history: {type(message.channel)}")
-    else:
-        try:
-            history = []
-            async for msg in message.channel.history(limit=int(limit)):
-                # We are not adding message which invoked this method
-                if msg.id == message.id:
-                    continue
-                # We are not adding attachments to history, only texts if exist of course
-                if msg.content.strip():
-                    history.append(msg)
-            history.reverse()
-            history_response = "\nHistoria czatu:\n"
-            for msg in history:
-                history_response += f"{msg.content}\n"
-                logging.info(f"History: {msg.author.name}: {msg.content.strip()}")
-            current_question = f"Nowe pytanie: {message.content.strip()}."
-            prompt = f"{history_response}\n{current_question}"
-            message.content = prompt
-            return message
-        except Exception as e:
-            logging.error(f"Error while adding history to message: {e}")
-            return None
+async def get_messages_with_chat_history(message_to_ai):
+    user_id_pattern = re.compile(r'<@!?1315827200770969693>')  # Remove bot ID
+    cleaned_content = user_id_pattern.sub('', message_to_ai.content.strip())
+    message_history_enabled = os.getenv('message_history_enabled', 'false').lower() == 'true'
+    ai_behaviour = os.getenv('ai_behavior')
+    limit = int(os.getenv('message_history_limit', 5))
+
+    messages = [{"role": "system", "content": ai_behaviour}]
+
+    if message_history_enabled:
+        messages.extend(await get_history_messages(message_to_ai, limit))
+
+    # Add current prompt
+    messages.append({"role": "user", "content": cleaned_content})
+    return messages
+
+
+async def get_history_messages(message_to_ai, limit):
+    history_messages = []
+    try:
+        async for msg in message_to_ai.channel.history(limit=limit):
+            if msg.id == message_to_ai.id or not msg.content.strip():
+                continue
+
+            role = "assistant" if msg.author.bot else "user"
+            history_messages.append({
+                "role": role,
+                "content": msg.content.strip(),
+                "name": msg.author.display_name
+            })
+            logging.info(f"History append: {msg.author.display_name}: {msg.content.strip()}")
+    except Exception as e:
+        logging.error(f"Error while fetching history: {e}")
+    history_messages.reverse()
+    return history_messages
 
 
 def analyze_image(message_to_ai):
@@ -140,9 +132,10 @@ def analyze_image(message_to_ai):
     prompt = message_to_ai.content.strip()
     logging.info(f"Prompt before: {prompt}")
     if not prompt:
-        prompt = (f"Jeżeli na zdjeciu jest pokój, przeanalizuj czy jest posprzatany i daj proste wskazówki. Pamietaj że to "
-                  f"dziecko więc bądz wyrozumiały. Jeśli jest to zdjęcie zabawki, np popsutej, wyraz niezadowolenie "
-                  f"jako Mikołaj. Natomiast jeśli to jakiś obraz/komiks namalowany przez dziecko, oceń i opisz. Odpowiadaj ZAWSZE po polsku.")
+        prompt = (
+            f"Jeżeli na zdjeciu jest pokój, przeanalizuj czy jest posprzatany i daj proste wskazówki. Pamietaj że to "
+            f"dziecko więc bądz wyrozumiały. Jeśli jest to zdjęcie zabawki, np popsutej, wyraz niezadowolenie "
+            f"jako Mikołaj. Natomiast jeśli to jakiś obraz/komiks namalowany przez dziecko, oceń i opisz. Odpowiadaj ZAWSZE po polsku. Odpowiadaj krótko. Nie rozpisuj się.")
     logging.info(f"Prompt after: {prompt}")
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -187,89 +180,47 @@ class OpenAIService(commands.Cog):
             f"Costs: {response.usage.prompt_tokens}+{response.usage.completion_tokens}={response.usage.total_tokens}")
         return response.choices[0].text
 
-    def gpt_35_turbo_0125(self, message, is_tools_enabled):
+    async def gpt_35_turbo_0125(self, message):
         openai.api_key = self.open_ai_token
-        if is_tools_enabled is True:
-            response = openai.chat.completions.create(
-                messages=get_messages(self.ai_behaviour, message),
-                model=self.model_ai,
-                max_tokens=self.max_tokens,
-                tools=get_tools(),
-                tool_choice="auto",
-            )
-            logging.info(f"First response from API OpenAI: {response}")
-            logging.info(
-                f"Costs (first call): {response.usage.prompt_tokens}+{response.usage.completion_tokens}={response.usage.total_tokens}")
-            available_tools = {
-                'get_user_activity': ""
-            }
-            message_response = response.choices[0].message
-            if message_response.tool_calls:
-                messages = get_messages(self.ai_behaviour, message)
-                messages.append(message_response)
-                for tool_call in message_response.tool_calls:
-                    function_name = tool_call.function.name
-                    function_to_call = available_tools[function_name]
-                    function_args = json.loads(tool_call.function.arguments)
-                    function_args["guild_context"] = message.guild
-                    function_response = function_to_call(**function_args)
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call.id,
-                            "role": "tool",
-                            "name": function_name,
-                            "content": function_response,
-                        }
-                    )
-                response = openai.chat.completions.create(
-                    model=self.model_ai,
-                    messages=messages,
-                )
-                logging.info(f"Second response from API OpenAI: {response}")
-                logging.info(
-                    f"Costs (second call): {response.usage.prompt_tokens}+{response.usage.completion_tokens}={response.usage.total_tokens}")
-                return response.choices[0].message.content
-        else:
-            response = openai.chat.completions.create(
-                messages=get_messages(self.ai_behaviour, message),
-                model=self.model_ai,
-                max_tokens=self.max_tokens,
-            )
-            logging.info(f"Response from API OpenAI: {response}")
-            logging.info(
-                f"Costs (second call): {response.usage.prompt_tokens}+{response.usage.completion_tokens}={response.usage.total_tokens}")
-            return response.choices[0].message.content
+        prompt = await get_messages_with_chat_history(self.ai_behaviour, message)
+        response = openai.chat.completions.create(
+            messages=prompt,
+            model=self.model_ai,
+            max_tokens=self.max_tokens,
+        )
+        logging.info(f"Response from API OpenAI: {response}")
+        logging.info(
+            f"Costs (second call): {response.usage.prompt_tokens}+{response.usage.completion_tokens}={response.usage.total_tokens}")
+        return response.choices[0].message.content
 
-    async def chat_with_gpt(self, message):
-        # Send a message to the openAPI model and get a response back
-        user_id_to_check = message.author.id
-        guild_id = message.guild.id
-        message_history_limit = os.getenv('message_history_limit')
-        message_history_enabled = os.getenv('message_history_enabled')
-        try:
-            max_openai_length = 250
-            if len(message.content.strip()) > max_openai_length:
-                return None
-            elif not can_user_send_message(user_id_to_check):
-                logging.warning("Too many messages per second. Slow mode on.")
-                return "Pisz wolniej dziecko, jestem już stary i wolno czytam. "
-            elif not can_guild_send_message(guild_id):
-                logging.warning("Maximum number of messages per guild was reached.")
-                return "Musze już iść spać i dzisiaj nie bede w stanie przeczytać więcej Twoich wiaodmości. Prosze badz grzecznym dzieckiem!"
 
-            response_from_ai = None
-            # Add history to message (limit is stored in envs!)
-            if message_history_enabled:
-                message_to_ai = await add_history_to_message(message, message_history_limit)
-            else:
-                message_to_ai = message
-            logging.info(f"Message to AI: {message_to_ai}")
-            # Call one of OpenAI API engines
-            if GPT_35_TURBO_INSTRUCT in self.model_ai:
-                response_from_ai = self.gpt_35_turbo_instruct(message_to_ai)
-            elif GPT_35_TURBO_ in self.model_ai:
-                response_from_ai = self.gpt_35_turbo_0125(message_to_ai, False)
+async def chat_with_gpt(self, message):
+    # Send a message to the openAPI model and get a response back
+    user_id_to_check = message.author.id
+    guild_id = message.guild.id
+    message_history_limit = os.getenv('message_history_limit')
+    message_history_enabled = os.getenv('message_history_enabled')
+    try:
+        max_openai_length = 250
+        if len(message.content.strip()) > max_openai_length:
+            return None
+        elif not can_user_send_message(user_id_to_check):
+            logging.warning("Too many messages per second. Slow mode on.")
+            return "Pisz wolniej dziecko, jestem już stary i wolno czytam. "
+        elif not can_guild_send_message(guild_id):
+            logging.warning("Maximum number of messages per guild was reached.")
+            return "Musze już iść spać i dzisiaj nie bede w stanie przeczytać więcej Twoich wiaodmości. Prosze badz grzecznym dzieckiem!"
 
-            return response_from_ai
-        except Exception as e:
-            logging.error(f"Error during calling OpenAI API. e: {e.with_traceback(e.__traceback__)}")
+        response_from_ai = None
+        message_to_ai = message
+        logging.info(f"Message to AI: {message_to_ai}")
+        # Call one of OpenAI API engines
+        if GPT_35_TURBO_INSTRUCT in self.model_ai:
+            response_from_ai = self.gpt_35_turbo_instruct(message_to_ai)
+        elif GPT_35_TURBO_ in self.model_ai:
+            response_from_ai = await self.gpt_35_turbo_0125(message_to_ai)
+
+        return response_from_ai
+
+    except Exception as e:
+        logging.error(f"Error during calling OpenAI API. e: {e.with_traceback(e.__traceback__)}")
