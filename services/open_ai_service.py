@@ -6,39 +6,13 @@ import os
 import re
 import time
 
-import discord
 import openai
 from discord.ext import commands
 from openai import OpenAI
 
 GPT_35_TURBO_ = 'gpt-3.5-turbo-0125'
-
 GPT_35_TURBO_INSTRUCT = 'gpt-3.5-turbo-instruct'
-
 last_user_message_times = {}
-
-
-def get_tools():
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_user_activity",
-                "description": "Get user's activity",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "user_id": {
-                            "type": "string",
-                            "description": "User ID, always found in format <@1234567890>"
-                        }
-                    },
-                    "required": ["user_id"]
-                }
-            }
-        }
-    ]
-    return tools
 
 
 def can_user_send_message(user_id):
@@ -112,8 +86,7 @@ async def get_history_messages(message_to_ai, limit):
             role = "assistant" if msg.author.bot else "user"
             history_messages.append({
                 "role": role,
-                "content": msg.content.strip(),
-                "name": msg.author.display_name
+                "content": msg.content.strip()
             })
             logging.info(f"History append: {msg.author.display_name}: {msg.content.strip()}")
     except Exception as e:
@@ -182,7 +155,7 @@ class OpenAIService(commands.Cog):
 
     async def gpt_35_turbo_0125(self, message):
         openai.api_key = self.open_ai_token
-        prompt = await get_messages_with_chat_history(self.ai_behaviour, message)
+        prompt = await get_messages_with_chat_history(message)
         response = openai.chat.completions.create(
             messages=prompt,
             model=self.model_ai,
@@ -193,34 +166,31 @@ class OpenAIService(commands.Cog):
             f"Costs (second call): {response.usage.prompt_tokens}+{response.usage.completion_tokens}={response.usage.total_tokens}")
         return response.choices[0].message.content
 
+    async def chat_with_gpt(self, message):
+        # Send a message to the openAPI model and get a response back
+        user_id_to_check = message.author.id
+        guild_id = message.guild.id
+        try:
+            max_openai_length = 250
+            if len(message.content.strip()) > max_openai_length:
+                return None
+            elif not can_user_send_message(user_id_to_check):
+                logging.warning("Too many messages per second. Slow mode on.")
+                return "Pisz wolniej dziecko, jestem już stary i wolno czytam. "
+            elif not can_guild_send_message(guild_id):
+                logging.warning("Maximum number of messages per guild was reached.")
+                return "Musze już iść spać i dzisiaj nie bede w stanie przeczytać więcej Twoich wiaodmości. Prosze badz grzecznym dzieckiem!"
 
-async def chat_with_gpt(self, message):
-    # Send a message to the openAPI model and get a response back
-    user_id_to_check = message.author.id
-    guild_id = message.guild.id
-    message_history_limit = os.getenv('message_history_limit')
-    message_history_enabled = os.getenv('message_history_enabled')
-    try:
-        max_openai_length = 250
-        if len(message.content.strip()) > max_openai_length:
-            return None
-        elif not can_user_send_message(user_id_to_check):
-            logging.warning("Too many messages per second. Slow mode on.")
-            return "Pisz wolniej dziecko, jestem już stary i wolno czytam. "
-        elif not can_guild_send_message(guild_id):
-            logging.warning("Maximum number of messages per guild was reached.")
-            return "Musze już iść spać i dzisiaj nie bede w stanie przeczytać więcej Twoich wiaodmości. Prosze badz grzecznym dzieckiem!"
+            response_from_ai = None
+            message_to_ai = message
+            logging.info(f"Message to AI: {message_to_ai}")
+            # Call one of OpenAI API engines
+            if GPT_35_TURBO_INSTRUCT in self.model_ai:
+                response_from_ai = self.gpt_35_turbo_instruct(message_to_ai)
+            elif GPT_35_TURBO_ in self.model_ai:
+                response_from_ai = await self.gpt_35_turbo_0125(message_to_ai)
 
-        response_from_ai = None
-        message_to_ai = message
-        logging.info(f"Message to AI: {message_to_ai}")
-        # Call one of OpenAI API engines
-        if GPT_35_TURBO_INSTRUCT in self.model_ai:
-            response_from_ai = self.gpt_35_turbo_instruct(message_to_ai)
-        elif GPT_35_TURBO_ in self.model_ai:
-            response_from_ai = await self.gpt_35_turbo_0125(message_to_ai)
+            return response_from_ai
 
-        return response_from_ai
-
-    except Exception as e:
-        logging.error(f"Error during calling OpenAI API. e: {e.with_traceback(e.__traceback__)}")
+        except Exception as e:
+            logging.error(f"Error during calling OpenAI API. e: {e.with_traceback(e.__traceback__)}")
